@@ -116,6 +116,7 @@ struct expr* step_app_lam(struct lam* l, struct expr* arg) {
   return (l->body);
 }
 
+// single (small) step of evaluation
 struct expr* step(struct expr* e){
   // lambdas, constants, and null ptrs (vars) are values.
   // apps take steps. ptrs to things step to those things.

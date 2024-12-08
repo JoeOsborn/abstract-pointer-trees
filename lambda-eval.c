@@ -117,7 +117,8 @@ struct expr* step_app_lam(struct lam* l, struct expr* arg) {
 }
 
 struct expr* step(struct expr* e){
-  // everything's a value except apps
+  // lambdas, constants, and null ptrs (vars) are values.
+  // apps take steps. ptrs to things step to those things.
   switch(e->tag) {
     case LAM: return NULL;
     case PTR: {

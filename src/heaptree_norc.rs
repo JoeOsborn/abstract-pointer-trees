@@ -69,16 +69,29 @@ pub fn eval(e: Expr<'_>) -> Expr<'_> {
     println!("Result: {e}");
     *e
 }
-
-pub fn make_lam<'a, 'b>(args: &'b Args<'a>, init: impl FnOnce(Expr<'a>) -> Expr<'a>) -> Expr<'a>
+/// ```compile_fail,E0373,E0505
+/// use aptree::heaptree_norc::{Expr,make_lam,make_app,Args};
+/// fn make_lam_cheat<'prg>(args: &'prg Args<'prg>) -> Expr<'prg> {
+///     make_lam(args, |x| {
+///         let mut cheat = Expr::Bas("0");
+///         let lam = make_lam(args, |y| {
+///             cheat = y;
+///             x
+///         });
+///         make_app(lam, cheat)
+///     })
+/// }
+/// ```
+pub fn make_lam<'a, 'b, 'prg, F>(args: &'prg Args<'a>, init: F) -> Expr<'a>
 where
+    'prg: 'b,
     'b: 'a,
+    F: FnOnce(Expr<'b>) -> Expr<'b> + 'a,
 {
     let idx = args.1.take();
     args.1.set(idx + 1);
-    let cell = &args.0[idx];
-    let ptr = Ptr(cell);
-    let body_ptr = Ptr(cell);
+    let ptr = Ptr(&args.0[idx]);
+    let body_ptr = Ptr(&args.0[idx]);
     Expr::Lam(Lam(ptr, Box::new(init(Expr::Ptr(body_ptr)))))
 }
 

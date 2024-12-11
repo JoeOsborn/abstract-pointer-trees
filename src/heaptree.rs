@@ -71,7 +71,23 @@ pub fn eval(e: Expr) -> Expr {
     *e
 }
 
-pub fn make_lam(init: impl FnOnce(Expr) -> Expr) -> Expr {
+/// ```compile_fail,E0373,E0505
+/// use aptree::heaptree::{Expr,make_lam,make_app};
+/// fn make_lam_cheat() -> Expr {
+///     make_lam(|x| {
+///         let mut cheat = Expr::Bas("0");
+///         let lam = make_lam(|y| {
+///             cheat = y;
+///             x
+///         });
+///         make_app(lam, cheat)
+///     })
+/// }
+/// ```
+pub fn make_lam<F>(init: F) -> Expr
+where
+    F: FnOnce(Expr) -> Expr + 'static,
+{
     let ptr = Ptr(Rc::new(OnceCell::new()));
     let body_ptr = Ptr(Rc::clone(&ptr.0));
     Expr::Lam(Lam(ptr, Box::new(init(Expr::Ptr(body_ptr)))))

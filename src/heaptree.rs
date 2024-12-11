@@ -15,53 +15,47 @@ pub enum Expr {
     Bas(&'static str),
     Lam(Lam),
     App(Box<Expr>, Box<Expr>),
+    Invalid,
 }
 pub const ZERO: Expr = Expr::Bas("0");
 pub const ONE: Expr = Expr::Bas("1");
 pub const UNIT: Expr = Expr::Bas("()");
 
 fn step(e: &mut Box<Expr>) -> bool {
-    match e.as_mut() {
-        Expr::Bas(_) | Expr::Lam(_) => false,
-        Expr::Ptr(_) => {
-            // one weird trick to safely go from an &mut Box<T> to a T by replacing the box's contents.
-            let Expr::Ptr(Ptr(rc)) = std::mem::replace(e.as_mut(), UNIT) else {
-                unreachable!("We already know expr is ptr");
-            };
-            assert_eq!(
+    match std::mem::replace(e.as_mut(), Expr::Invalid) {
+        Expr::Invalid => {
+            unreachable!("Evaluating empty expr")
+        }
+        expr @ (Expr::Bas(_) | Expr::Lam(_)) => {
+            **e = expr;
+            false
+        }
+        Expr::Ptr(Ptr(rc)) => {
+            debug_assert_eq!(
                 Rc::strong_count(&rc),
                 1,
                 "at this time Rc should have just one referent"
             );
-            assert!(rc.get().is_some(), "deref before beta reduction");
+            debug_assert!(rc.get().is_some(), "invalid deref before beta reduction");
             // we can take ownership of the value in the Rc since there are no other references by this point
             let Some(deref) = Rc::into_inner(rc).and_then(OnceCell::into_inner) else {
                 unreachable!("Deref can't happen before beta reduction");
             };
-            *e = deref;
+            **e = *deref;
             true
         }
-        Expr::App(ref mut f, ref mut v) => {
-            step(f) || step(v) || {
-                // The one weird trick again. If I were willing to tolerate unsafe,
-                // I could be using Box<MaybeUninit<Expr>> and assume_init
-                let Expr::App(f, v) = std::mem::replace(e.as_mut(), UNIT) else {
-                    unreachable!("We already know expr is app");
-                };
-                if let Expr::Lam(Lam(arg, body)) = *f {
-                    // rustc can have a little assert, as a treat
-                    // We know this will always succeed because a lambda can't be applied more than once
-                    assert!(
-                        arg.0.set(v).is_ok(),
-                        "beta reduction can't happen twice for one lam"
-                    );
-                    *e = body;
-                    true
-                } else {
-                    // we're totally stuck, replace with the old app
-                    **e = Expr::App(f, v);
-                    false
-                }
+        Expr::App(mut f, mut v) => {
+            if step(&mut f) || step(&mut v) {
+                **e = Expr::App(f, v);
+                true
+            } else if let Expr::Lam(Lam(arg, body)) = *f {
+                let _ = arg.0.set(v);
+                **e = *body;
+                true
+            } else {
+                // we're totally stuck, replace with the old app
+                **e = Expr::App(f, v);
+                false
             }
         }
     }

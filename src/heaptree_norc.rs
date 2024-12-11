@@ -14,10 +14,10 @@ pub enum Expr<'prg> {
 impl<'prg> std::fmt::Display for Expr<'prg> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::Ptr(Ptr(ptr)) => write!(f, "@{ptr:p}"),
+            Expr::Ptr(Ptr(ptr)) => write!(f, "@{:p}", *ptr),
             Expr::Bas(b) => write!(f, "{b}"),
-            Expr::Lam(Lam(Ptr(ptr), body)) => write!(f, "\\{ptr:p} -> {body}"),
-            Expr::App(fun, val) => write!(f, "({fun} {val})"),
+            Expr::Lam(Lam(Ptr(ptr), body)) => write!(f, "(\\{:p} -> {})", *ptr, *body),
+            Expr::App(fun, val) => write!(f, "({} {})", **fun, **val),
             Expr::Invalid => write!(f, "NUL"),
         }
     }
